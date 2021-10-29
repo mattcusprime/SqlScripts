@@ -10,8 +10,9 @@ FETCH NEXT FROM C INTO @cursItmNumber;
 
 WHILE @@FETCH_STATUS = 0
        BEGIN
-              FETCH NEXT FROM C INTO @cursItmNumber;
+              
               Print @cursItmNumber;
+              FETCH NEXT FROM C INTO @cursItmNumber;
        END
 CLOSE C;
 
