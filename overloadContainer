@@ -1,0 +1,147 @@
+USE [inSight_Riverrun_2.22.2021]
+GO
+/****** Object:  StoredProcedure [dbo].[spAPP_utlValidateContainerScan_RVR]    Script Date: 4/18/2022 2:25:49 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER     PROCEDURE [dbo].[spAPP_utlValidateContainerScan_RVR]
+    @scan nvarchar(28)
+    ,@cptID int
+    -- CON scan
+    ,@conID int = NULL OUTPUT
+    -- ICN scan
+    ,@icnID int = NULL OUTPUT
+    -- ORI scan
+    ,@itmID int = NULL OUTPUT
+    ,@itmIDInstance smallint = NULL OUTPUT
+    ,@olnID int = NULL OUTPUT
+    ,@olnIDInstance smallint = NULL OUTPUT
+
+    --
+    ,@cdsmID tinyint = NULL OUTPUT 
+    ,@IsDuplicateScan bit = 0 OUTPUT
+    ,@AllowAnonymousInventory bit = 0 OUTPUT
+    ,@ValidateData xml = NULL OUTPUT
+    ,@sttID int = NULL OUTPUT
+    -- employee scan support
+    ,@venID int = NULL OUTPUT
+    ,@Password nvarchar(50) = NULL
+    ,@venCompanyName nvarchar(100) = NULL OUTPUT
+    ,@orgtID tinyint = NULL OUTPUT
+    ,@BypassLogin bit = NULL
+    -- shipment info
+    ,@shpID int = NULL
+    ,@shptID tinyint = NULL
+    ,@shipment_action tinyint = NULL -- 1 - Load, 2 - Unload, 3 - Receive, 4 - Unreceive
+    ,@UnloadedWorkOrderStatusValue int = NULL
+    ,@UnreceivedWorkOrderStatusValue int = NULL
+    ,@DoLoadConfirm bit = 0 OUTPUT -- for internal shipments, ad hoc item loading
+    ,@LoadSequenceControl tinyint = NULL  -- NULL or [0] skip test, [1] fill messagebuffer, [2] RAISERROR, [3] fill messagebuffer, if no items with same sequence are already loaded
+    --
+    ,@Mode tinyint = 1 -- [1] - default, [2] - bypass status update,status backflush, completion and address scan, [3] - Call from Inventory.spValidateCountScan
+    ,@EnableWorkOrderOperations bit = NULL -- Determines if Routing and Operations snapshot are used during Work Order creation . [0] = False(default), [1] = True
+    ,@lcID int = NULL OUTPUT
+    ,@ZoneStart tinyint = NULL OUTPUT
+    ,@contextID tinyint = 0 -- How to handle foreign barcodes. [0] = EMP, [1] = WHC
+    ,@imoID int = NULL OUTPUT
+    ,@prjID int = NULL OUTPUT
+    ,@ordID int = NULL OUTPUT
+    ,@iojID int = NULL OUTPUT
+    -- lot controls, OTR: 45265 - Inventory completion for MTS replenishment and Anonymous MTO need to support Lot Control
+    ,@lotID int = NULL
+    ,@lcmID tinyint = NULL OUTPUT -- [1] - Lot Control – Single Location, [2] - Lot Control – Multi Location, [3] - Serialization
+    ,@lnmID tinyint = NULL OUTPUT -- 0 - User Supplied, 1 - Auto Generated Identity, 2 - Vendor Supplied
+    ,@lottID tinyint = NULL OUTPUT -- 1 - Roll, 2 - Hide
+    ,@lbmID tinyint = NULL OUTPUT -- 0 - No Automatic Backflush, 1 - Oldest first, full qty, 2 - Newest first, full qty, 3 - Lot with least Qty, full qty, 4 - Lot with most Qty, full qty
+    ,@itmID_lot int = NULL OUTPUT
+    ,@ConLotSerialization tinyint = NULL OUTPUT
+    --
+    ,@UserPromptMessage nvarchar(2047) = NULL OUTPUT
+    -- OTR: 52877 - Add automatic assignment of alternate operations to SFA scan frame logic
+    ,@cptSubAltOperations bit = NULL OUTPUT
+    -- OTR: 32747 - Mobile Move Order Picking Scan Frame
+    ,@imobID int = NULL OUTPUT
+	,@paramSttValue int
+AS
+-- Version : $Id: spAPP_utlValidateContainerScan.sql,v 1.108.2.3 2020/02/25 17:37:48 EURO01\meyeto Exp $
+SET NOCOUNT ON
+	DECLARE @ErrorText nvarchar(1000)
+	--,@paramConID nvarchar(max)
+	--set @paramConID = replace (@scan,'CON','')
+	--set @paramConID = cast (@paramConID as int)
+
+	IF EXISTS (select * from dbo.ItemContainer icn
+	join dbo.orderitems ori on ori.olnid = icn.olnID and ori.itmID = icn.itmID and ori.itmIDInstance = icn.itmIDInstance and ori.olnIDInstance = icn.olnIDInstance
+	where icn.conID = @conID
+	and ori.sttValue < @paramSttValue)
+	BEGIN
+		--RETURN 0--ERROR text goes here
+    	    set @ErrorText = N'NO SOUP FOR YOU'
+		    RAISERROR (@ErrorText,16,1) -- The %s part of this scan [%s] is invalid.
+	END
+	
+
+
+/*
+
+	Insert all validation logic here, kick out with RAISERROR or ERRORTEXT to kill execution
+*/
+
+
+exec spAPP_utlValidateContainerScan
+	@scan=@scan
+    ,@cptID=@cptID
+    -- CON scan
+    ,@conID=@conID
+    -- ICN scan
+    ,@icnID=@icnID
+    -- ORI scan
+    ,@itmID=@itmID
+    ,@itmIDInstance=@itmIDInstance 
+    ,@olnID=@olnID  
+    ,@olnIDInstance=@olnIDInstance 
+    --
+    ,@cdsmID=@cdsmID  
+    ,@IsDuplicateScan=@IsDuplicateScan 
+    ,@AllowAnonymousInventory=@AllowAnonymousInventory 
+    ,@ValidateData=@ValidateData 
+    ,@sttID=@sttID 
+    -- employee scan support
+    ,@venID=@venID 
+    ,@Password=@Password
+    ,@venCompanyName=@venCompanyName 
+    ,@orgtID=@orgtID 
+    ,@BypassLogin=@BypassLogin 
+    -- shipment info
+    ,@shpID=@shpID 
+    ,@shptID=@shptID
+    ,@shipment_action=@shipment_action 
+    ,@UnloadedWorkOrderStatusValue=@UnloadedWorkOrderStatusValue 
+    ,@UnreceivedWorkOrderStatusValue=@UnreceivedWorkOrderStatusValue
+    ,@DoLoadConfirm=@DoLoadConfirm 
+    ,@LoadSequenceControl=@LoadSequenceControl
+    --
+    ,@Mode=@Mode 
+    ,@EnableWorkOrderOperations=@EnableWorkOrderOperations 
+    ,@lcID=@lcID 
+    ,@ZoneStart=@ZoneStart 
+    ,@contextID =@contextID 
+    ,@imoID=@imoID 
+    ,@prjID=@prjID 
+    ,@ordID =@ordID 
+    ,@iojID=@iojID 
+    -- lot controls, OTR: 45265 - Inventory completion for MTS replenishment and Anonymous MTO need to support Lot Control
+    ,@lotID =@lotID 
+    ,@lcmID =@lcmID 
+    ,@lnmID =@lnmID 
+    ,@lottID=@lottID
+    ,@lbmID=@lbmID
+    ,@itmID_lot=@itmID_lot 
+    ,@ConLotSerialization =@ConLotSerialization 
+    --
+    ,@UserPromptMessage =@UserPromptMessage 
+    -- OTR: 52877 - Add automatic assignment of alternate operations to SFA scan frame logic
+    ,@cptSubAltOperations =@cptSubAltOperations 
+    -- OTR: 32747 - Mobile Move Order Picking Scan Frame
+    ,@imobID =@imobID 
